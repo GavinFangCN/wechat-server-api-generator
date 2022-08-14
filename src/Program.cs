@@ -6,4 +6,8 @@ using WechatServerApiGenerator.Utilities;
 
 var apiGroups = await WechatApiGroupDocLoader.GetApiGroupsAsync();
 
-Console.WriteLine(apiGroups.Count());
+foreach(var api in apiGroups.SelectMany(g => g.Apis))
+{
+    var details = await WechatApiDetailsDocLoader.GetApiDetailsAsync(api.DocUrl);
+    Console.WriteLine(JsonUtility.Serialize(details));
+}

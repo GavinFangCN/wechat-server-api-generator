@@ -12,6 +12,13 @@ static class LocalJsonDataManager
         }
     }
 
+    public static async ValueTask<T?> GetAsJsonAsync<T>(string fileName)
+    {
+        var json = await GetJsonAsync(fileName);
+
+        return string.IsNullOrWhiteSpace(json) ? default : JsonUtility.Deserialize<T>(json);
+    }
+
     public static async ValueTask<string> GetJsonAsync(string fileName)
     {
         var path = Path.Combine(DirectoryName, fileName);
@@ -20,7 +27,7 @@ static class LocalJsonDataManager
         return await File.ReadAllTextAsync(path);
     }
 
-    public static Task SetJsonAsync<T>(string fileName, T data)
+    public static Task SetAsJsonAsync<T>(string fileName, T data)
     {
         var json = JsonUtility.Serialize(data);
 

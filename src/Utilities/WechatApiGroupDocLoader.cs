@@ -17,7 +17,7 @@ class WechatApiGroupDocLoader
         apiGroups = await GetRemoteApiGroupsAsync();
         if(apiGroups.Any())
         {
-            await LocalJsonDataManager.SetJsonAsync(LocalApiGroupJsonFileName, apiGroups);
+            await LocalJsonDataManager.SetAsJsonAsync(LocalApiGroupJsonFileName, apiGroups);
         }
 
         return apiGroups;

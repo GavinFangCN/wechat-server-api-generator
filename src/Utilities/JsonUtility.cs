@@ -11,9 +11,7 @@ static class JsonUtility
     static JsonUtility()
     {
         var encoderSettings = new TextEncoderSettings();
-        encoderSettings.AllowRange(UnicodeRanges.BasicLatin);
-        encoderSettings.AllowRange(UnicodeRanges.CjkUnifiedIdeographs);
-        encoderSettings.AllowRange(UnicodeRanges.CjkCompatibility);
+        encoderSettings.AllowRange(UnicodeRanges.All);
 
         JsonSerializerOptions = new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.Create(encoderSettings) };
     }
