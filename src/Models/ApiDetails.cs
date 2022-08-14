@@ -29,8 +29,13 @@ public abstract class ApiParameter
     {
         "number" => "int",
         "string" => "string",
-        "boolean" => "boolean",
+        "boolean" => "bool",
         "Date" => "DateTime",
+        "array&lt;object&gt;" => "IList<object>",
+        "array&lt;string&gt;" => "IList<string>",
+        "object" => "object",
+        "FormData" => "object",
+        "array&lt;number&gt;" => "IList<int>",
         _ => Type
     };
 }

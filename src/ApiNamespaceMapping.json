@@ -1,0 +1,13 @@
+{
+  "用户信息": "Users",
+  "小程序码与小程序链接": "MiniPrograms",
+  "小程序客服": "MiniProgramCustomerServices",
+  "消息相关": "Messaging",
+  "小程序安全": "MiniProgramSecurity",
+  "数据分析": "DataAnalysis",
+  "小程序直播": "MiniProgramLive",
+  "图像处理与文字识别": "CognitiveServices",
+  "即时配送": "InstantDelivery",
+  "物流助手": "LogisticsAssistant",
+  "购物订单": "ShoppingOrders"
+}

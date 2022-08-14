@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -22,6 +23,15 @@ internal class ApiGroupTypeGenerator : TypeGeneratorBase
 
         AppendXmlComments(details);
 
+        foreach (var requestParameter in details.RequestParameters)
+        {
+            var parameterName = requestParameter.Name;
+            if (parameterName.Contains('/'))
+            {
+                requestParameter.Name = parameterName.Substring(0, parameterName.IndexOf('/')).Trim();
+            }
+        }
+
         var resultTypeName = name + "Result";
         var responseTypeGenerator = new ApiResponseTypeGenerator(resultTypeName, 4);
         foreach (var responseParameter in details.ResponseParameters)
@@ -38,11 +48,11 @@ internal class ApiGroupTypeGenerator : TypeGeneratorBase
         {
             AppendLine("var accessToken = await _accessTokenLoader.GetAccessTokenAsync();");
         }
-        AppendStringVarDeclaration("url", GenerateFullUrl(details.Url, details.RequestParameters, needAccessToken ? "accessToken" : string.Empty));
+        AppendStringVarDeclaration("reqUrl", GenerateFullUrl(details.Url, details.RequestParameters, needAccessToken ? "accessToken" : string.Empty));
 
         AppendLine();
-        AppendLine("var json = await _apiClient.GetJsonAsync(url);");
-        AppendLine("return JsonSerializer.Deserialize<GetAccessTokenResult>(json);");
+        AppendLine("var json = await _apiClient.GetJsonAsync(reqUrl);");
+        AppendLine($"return JsonSerializer.Deserialize<{resultTypeName}>(json);");
 
         AppendEndObject();
     }
@@ -71,7 +81,12 @@ internal class ApiGroupTypeGenerator : TypeGeneratorBase
     {
         AppendLine("/// <summary>");
         AppendLine("/// " + details.Description);
-        AppendLine("/// " + details.RequestSample);
+
+        if (!string.IsNullOrWhiteSpace(details.RequestSample))
+        {
+            AppendLine("/// " + details.RequestSample.Replace("\n", " "));
+        }
+
         AppendLine("/// </summary>");
 
         foreach (var requestParameter in details.RequestParameters)
@@ -84,13 +99,27 @@ internal class ApiGroupTypeGenerator : TypeGeneratorBase
 
     private static string GenerateFullUrl(string url, IList<ApiRequestParameter> parameters, string accessTokenVariableName)
     {
-        var query = string.Join('&', parameters.Select(p => $"{p.Name}={{{p.Name}}}"));
-        if (!string.IsNullOrWhiteSpace(accessTokenVariableName))
+        if (url.Contains('?'))
         {
-            query += $"&access_token={{{accessTokenVariableName}}}";
+            url = url.Substring(0, url.IndexOf('?'));
         }
 
-        return url + "?" + query;
+        var query = string.Join('&', parameters.Select(p => $"{p.Name}={{{p.Name}}}"));
+        var result = url + "?" + query;
+
+        if (!string.IsNullOrWhiteSpace(accessTokenVariableName))
+        {
+            if (result.Contains("ACCESS_TOKEN"))
+            {
+                result = result.Replace("ACCESS_TOKEN", $"{{{accessTokenVariableName}}}");
+            }
+            else
+            {
+                result += $"&access_token={{{accessTokenVariableName}}}";
+            }
+        }
+
+        return result;
     }
 
     private static string GenerateMethodArguments(IList<ApiRequestParameter> parameters)
