@@ -15,7 +15,7 @@ class WechatApiGroupDocLoader
         if (apiGroups.Any()) return apiGroups;
 
         apiGroups = await GetRemoteApiGroupsAsync();
-        if(apiGroups.Any())
+        if (apiGroups.Any())
         {
             await LocalJsonDataManager.SetAsJsonAsync(LocalApiGroupJsonFileName, apiGroups);
         }
@@ -54,10 +54,21 @@ class WechatApiGroupDocLoader
                 groupTitle = groupTitle[2..];
             }
 
+            var parentName = string.Empty;
+            if (groupNode.Name == "h3")
+            {
+                var previousH2 = FindPrevious(groupNode, "h2");
+                if (previousH2 != null)
+                {
+                    parentName = previousH2.InnerText.Trim().TrimStart('#', ' ');
+                }
+            }
+
             var table = tableContainer.FirstChild;
             var apiGroup = new ApiGroup()
             {
                 Title = groupTitle,
+                Parent = parentName,
                 Apis = ExtractApiSummariesViaTableNode(table).ToArray()
             };
 
@@ -65,6 +76,19 @@ class WechatApiGroupDocLoader
         }
 
         return apiGroups;
+    }
+
+    private static HtmlNode? FindPrevious(HtmlNode current, string previousName)
+    {
+        while (true)
+        {
+            if (current.Name == previousName) return current;
+
+            current = current.PreviousSibling;
+            if(current == null || current.Name == "body") break;
+        }
+
+        return null;
     }
 
     private static string GetDocUrlByEnglishTd(HtmlNode englishTd)
