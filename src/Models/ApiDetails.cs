@@ -23,6 +23,16 @@ public abstract class ApiParameter
     public string Type { get; set; } = "string";
 
     public string Description { get; set; } = string.Empty;
+
+
+    public string CSharpType => Type switch
+    {
+        "number" => "int",
+        "string" => "string",
+        "boolean" => "boolean",
+        "Date" => "DateTime",
+        _ => Type
+    };
 }
 
 public class ApiRequestParameter : ApiParameter
