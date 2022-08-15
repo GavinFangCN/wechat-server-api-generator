@@ -76,12 +76,12 @@ class WechatApiDetailsDocLoader
     private static IEnumerable<ApiRequestParameter> GetApiRequestParameters(HtmlNode root)
     {
         var tableNode = root.SelectSingleNode("//*[@id=\"请求参数\"]")?.NextSibling?.NextSibling?.FirstChild;
-        if(tableNode == null)
+        if (tableNode == null)
         {
             yield break;
         }
 
-        if(tableNode.Name == "thead")
+        if (tableNode.Name == "thead")
         {
             tableNode = tableNode.ParentNode;
         }
@@ -94,18 +94,20 @@ class WechatApiDetailsDocLoader
         foreach (var trNode in trNodes)
         {
             IList<HtmlNode> tds = trNode.ChildNodes.Where(x => x.Name == "td").ToArray();
-            if (tds.Count != 4)
+            if (tds.Count < 4)
             {
                 //error
                 continue;
             }
 
+            var startIndex = tds.Count == 4 ? 0 : 1;
+
             var parameter = new ApiRequestParameter
             {
-                Name = tds[0].InnerText,
-                Type = tds[1].InnerText,
-                IsRequired = tds[2].InnerText.Contains('是'),
-                Description = tds[3].InnerText
+                Name = tds[startIndex].InnerText,
+                Type = tds[startIndex + 1].InnerText,
+                IsRequired = tds[startIndex + 2].InnerText.Contains('是'),
+                Description = tds[startIndex + 3].InnerText
             };
 
             yield return parameter;
@@ -113,12 +115,22 @@ class WechatApiDetailsDocLoader
     }
 
     private static string GetRequestSample(HtmlNode root)
-        => root.SelectSingleNode("//*[@id=\"请求数据示例\"]").NextSibling?.InnerText?.Trim() ?? string.Empty;
+    {
+        var sampleDiv = root.SelectSingleNode("//*[@id=\"请求数据示例\"]").NextSibling;
+        if(sampleDiv.Name == "#text" && sampleDiv.NextSibling.Name == "div")
+        {
+            sampleDiv = sampleDiv.NextSibling;
+        }
+
+        
+
+        return sampleDiv?.InnerText?.Trim() ?? string.Empty;
+    }
 
     private static IEnumerable<ApiResponseParameter> GetApiResponseParameters(HtmlNode root)
     {
         var tableNode = root.SelectSingleNode("//*[@id=\"返回参数\"]")?.NextSibling?.NextSibling;
-        if(tableNode == null)
+        if (tableNode == null)
         {
             yield break;
         }
@@ -136,17 +148,18 @@ class WechatApiDetailsDocLoader
         foreach (var trNode in trNodes)
         {
             IList<HtmlNode> tds = trNode.ChildNodes.Where(x => x.Name == "td").ToArray();
-            if (tds.Count != 4)
+            if (tds.Count < 3)
             {
                 //error
                 continue;
             }
 
+            var startIndex = tds.Count == 3 ? 0 : 1;
             var parameter = new ApiResponseParameter
             {
-                Name = tds[1].InnerText,
-                Type = tds[2].InnerText,
-                Description = tds[3].InnerText
+                Name = tds[startIndex].InnerText,
+                Type = tds[startIndex + 1].InnerText,
+                Description = tds[startIndex + 2].InnerText
             };
 
             yield return parameter;
@@ -154,5 +167,10 @@ class WechatApiDetailsDocLoader
     }
 
     private static string GetResponseSample(HtmlNode root)
-        => root.SelectSingleNode("//*[@id=\"返回数据示例\"]")?.NextSibling?.InnerText?.Trim() ?? string.Empty;
+    {
+        var labelNode = root.SelectSingleNode("//*[@id=\"返回数据示例\"]");
+        var divNode = HtmlDocNodeFinder.FindNext(labelNode, "div");
+
+        return divNode?.InnerText?.Trim() ?? string.Empty;
+    }
 }
