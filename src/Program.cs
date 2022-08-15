@@ -15,6 +15,10 @@ if (!Directory.Exists(outputDirectory))
     Directory.CreateDirectory(outputDirectory);
 }
 
+var infraGenerator = new ApiInfraCodeGenerator(rootNamespace);
+infraGenerator.WriteAccessLoaderInterface(Path.Combine(outputDirectory, ApiGeneratorShared.AccessTokenLoaderInterfaceName + ".cs"));
+infraGenerator.WriteWechatClientInterface(Path.Combine(outputDirectory, ApiGeneratorShared.WechatApiClientInterfaceName + ".cs"));
+
 var namespaceMappingJson = await File.ReadAllTextAsync("ApiNamespaceMapping.json");
 var namespaceMappings = JsonUtility.Deserialize<Dictionary<string, string>>(namespaceMappingJson)!;
 
@@ -48,7 +52,7 @@ foreach (var groupedByParent in apiGroups.GroupBy(x => x.Parent))
         }
 
         var classGgenerator = new ApiGroupTypeGenerator(currentNamespace, className);
-        foreach(var apiSummary in apiGroup.Apis)
+        foreach (var apiSummary in apiGroup.Apis)
         {
             var apiDetails = await WechatApiDetailsDocLoader.GetApiDetailsAsync(apiSummary.DocUrl);
             classGgenerator.AppendApi(apiSummary, apiDetails!);

@@ -93,10 +93,10 @@ abstract class TypeGeneratorBase
     protected void IncIndent() => CurrentIndentLength += 4;
     protected void DecIndent() => CurrentIndentLength -= 4;
 
-    protected void AppendLine(string text) => _builder.AppendLine(CurrentIndent + text);
-    protected void AppendLine() => _builder.AppendLine();
+    public void AppendLine(string text) => _builder.AppendLine(CurrentIndent + text);
+    public void AppendLine() => _builder.AppendLine();
 
-    protected void Insert(int index, string text) => _builder.Insert(index, text);
+    public void Insert(int index, string text) => _builder.Insert(index, text);
 
     protected int Length => _builder.Length;
 

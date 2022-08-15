@@ -25,19 +25,35 @@ public abstract class ApiParameter
     public string Description { get; set; } = string.Empty;
 
 
-    public string CSharpType => Type switch
+    public string CSharpType
     {
-        "number" => "int",
-        "string" => "string",
-        "boolean" => "bool",
-        "Date" => "DateTime",
-        "array&lt;object&gt;" => "IList<object>",
-        "array&lt;string&gt;" => "IList<string>",
-        "object" => "object",
-        "FormData" => "object",
-        "array&lt;number&gt;" => "IList<int>",
-        _ => Type
-    };
+        get
+        {
+            if(string.IsNullOrWhiteSpace(Type))
+            {
+                if (Name.Contains("code")) Type = "number";
+                else Type = "string";
+            }
+
+            return Type switch
+            {
+                "number" => "int",
+                "string" => "string",
+                "boolean" => "bool",
+                "Date" => "DateTime",
+                "array&lt;object&gt;" => "IList<object>",
+                "array&lt;string&gt;" => "IList<string>",
+                "object" => "object",
+                "FormData" => "object",
+                "array&lt;number&gt;" => "IList<int>",
+                "Buffer" => "object",
+                "Number" => "int",
+                "int32" => "int",
+                " " => "string",
+                _ => Type
+            };
+        }
+    }
 }
 
 public class ApiRequestParameter : ApiParameter

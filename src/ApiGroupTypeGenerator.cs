@@ -7,6 +7,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using WechatServerApiGenerator.Models;
 
 namespace WechatServerApiGenerator;
@@ -19,27 +20,28 @@ internal class ApiGroupTypeGenerator : TypeGeneratorBase
 
     public void AppendApi(ApiSummary summary, ApiDetails details, bool needAccessToken = true)
     {
+        if (details.HttpMethod == "GET")
+        {
+            AppendGetApi(summary, details, needAccessToken);
+        }
+        else if (details.HttpMethod == "POST")
+        {
+            AppendPostApi(summary, details, needAccessToken);
+        }
+        else
+        {
+            Console.Error.WriteLine($"Unhandled httpmethod: {details.HttpMethod} for api: {summary.EnglishName}");
+        }
+    }
+
+    public void AppendGetApi(ApiSummary summary, ApiDetails details, bool needAccessToken = true)
+    {
         var name = UpperFirstLetter(summary.EnglishName);
 
-        AppendXmlComments(details);
+        AppendGetMethodXmlComments(details);
+        NormalizeParameterNames(details.RequestParameters);
 
-        foreach (var requestParameter in details.RequestParameters)
-        {
-            var parameterName = requestParameter.Name;
-            if (parameterName.Contains('/'))
-            {
-                requestParameter.Name = parameterName.Substring(0, parameterName.IndexOf('/')).Trim();
-            }
-        }
-
-        var resultTypeName = name + "Result";
-        var responseTypeGenerator = new ApiResponseTypeGenerator(resultTypeName, 4);
-        foreach (var responseParameter in details.ResponseParameters)
-        {
-            responseTypeGenerator.AppendJsonProperty(responseParameter.Name, responseParameter.CSharpType, responseParameter.Description);
-        }
-
-        Insert(ClassStartIndex, responseTypeGenerator.Complete());
+        var resultTypeName = CreateResultType(name, details.ResponseParameters);
 
         AppendLine($"public async ValueTask<{resultTypeName}> {name}({GenerateMethodArguments(details.RequestParameters)})");
         AppendStartObject();
@@ -55,6 +57,77 @@ internal class ApiGroupTypeGenerator : TypeGeneratorBase
         AppendLine($"return JsonSerializer.Deserialize<{resultTypeName}>(json);");
 
         AppendEndObject();
+    }
+
+    public void AppendPostApi(ApiSummary summary, ApiDetails details, bool needAccessToken = true)
+    {
+        var name = UpperFirstLetter(summary.EnglishName);
+
+        var requestBodyTypeName = CreateRequestBodyType(name, details.RequestParameters);
+
+        AppendPostMethodXmlComments(details, "requestBody", string.Empty);
+        NormalizeParameterNames(details.RequestParameters);
+
+        var resultTypeName = CreateResultType(name, details.ResponseParameters);
+
+        AppendLine($"public async ValueTask<{resultTypeName}> {name}({requestBodyTypeName} requestBody)");
+        AppendStartObject();
+
+        if (needAccessToken)
+        {
+            AppendLine("var access_token = await _accessTokenLoader.GetAccessTokenAsync();");
+        }
+        AppendStringVarDeclaration("reqUrl", details.Url);
+
+        AppendLine();
+        AppendLine("var requestBodyJson = JsonSerializer.Serialize(requestBody);");
+        AppendLine("var json = await _apiClient.PostAsJsonAsync(reqUrl, requestBodyJson);");
+        AppendLine($"return JsonSerializer.Deserialize<{resultTypeName}>(json);");
+
+        AppendEndObject();
+    }
+
+    private string CreateRequestBodyType(string apiName, IEnumerable<ApiRequestParameter> parameters)
+    {
+        var typeName = apiName + "Body";
+        return CreateDtoType(typeName, parameters, (typeName, initialIndentLength) => new ApiRequestBodyTypeGenerator(typeName, initialIndentLength));
+    }
+
+    private string CreateResultType(string apiName, IEnumerable<ApiResponseParameter> parameters)
+    {
+        var resultTypeName = apiName + "Result";
+        return CreateDtoType(resultTypeName, parameters, (typeName, initialIndentLength) => new ApiResponseTypeGenerator(typeName, initialIndentLength));
+    }
+
+    private string CreateDtoType<TParameter, TGenerator>(string typeName, IEnumerable<TParameter> parameters, Func<string, int, TGenerator> generatorCtor)
+        where TParameter : ApiParameter
+        where TGenerator: RequestDtoTypeGenerator
+    {
+        var typeGenerator = generatorCtor(typeName, 4);
+        foreach (var parameter in parameters)
+        {
+            typeGenerator.AppendJsonProperty(parameter.Name, parameter.CSharpType, parameter.Description);
+        }
+
+        Insert(ClassStartIndex, typeGenerator.Complete());
+        return typeName;
+    }
+
+    private static void NormalizeParameterNames<T>(IEnumerable<T> parameters) where T : ApiParameter
+    {
+        foreach (var parameter in parameters)
+        {
+            NormalizeParameterNames(parameter);
+        }
+    }
+
+    private static void NormalizeParameterNames<T>(T parameter) where T : ApiParameter
+    {
+        var parameterName = parameter.Name;
+        if (parameterName.Contains('/'))
+        {
+            parameter.Name = parameterName[..parameterName.IndexOf('/')].Trim();
+        }
     }
 
     protected override void AddUsings()
@@ -77,24 +150,24 @@ internal class ApiGroupTypeGenerator : TypeGeneratorBase
 
     protected void AppendStringVarDeclaration(string varName, string value) => AppendLine($"var {varName} = $\"{value}\";");
 
-    private void AppendXmlComments(ApiDetails details)
+    private void AppendGetMethodXmlComments(ApiDetails details)
     {
-        AppendLine("/// <summary>");
-        AppendLine("/// " + details.Description);
-
-        if (!string.IsNullOrWhiteSpace(details.RequestSample))
-        {
-            AppendLine("/// " + details.RequestSample.Replace("\n", " "));
-        }
-
-        AppendLine("/// </summary>");
+        var xmlCommentAppender = new MethodXmlCommentAppender(this, details.Description, details.RequestSample);
 
         foreach (var requestParameter in details.RequestParameters)
         {
-            AppendLine($"/// <param name=\"{requestParameter.Name}\">{requestParameter.Description}, IsRequired: {requestParameter.IsRequired}</param>");
+            xmlCommentAppender.AddParameter(requestParameter.Name, $"{requestParameter.Description}, IsRequired: {requestParameter.IsRequired}");
         }
 
-        AppendLine($"/// <returns>{details.ResponseSample.Replace("\n", " ")}</returns>");
+        xmlCommentAppender.Complete(details.ResponseSample);
+    }
+
+    private void AppendPostMethodXmlComments(ApiDetails details, string bodyParameterName, string bodyDescription)
+    {
+        var xmlCommentAppender = new MethodXmlCommentAppender(this, details.Description, details.RequestSample);
+        xmlCommentAppender.AddParameter(bodyParameterName, bodyDescription);
+
+        xmlCommentAppender.Complete(details.ResponseSample);
     }
 
     private static string GenerateFullUrl(string url, IList<ApiRequestParameter> parameters, string accessTokenVariableName)
@@ -104,20 +177,20 @@ internal class ApiGroupTypeGenerator : TypeGeneratorBase
             url = url.Substring(0, url.IndexOf('?'));
         }
 
-        var query = string.Join('&', parameters.Select(p => $"{p.Name}={{{p.Name}}}"));
+        var query = string.Join('&', parameters.Select(p => $"{p.Name}={{{(p.Name == "params" ? "@params" : p.Name)}}}"));
         var result = url + "?" + query;
 
-        if (!string.IsNullOrWhiteSpace(accessTokenVariableName))
-        {
-            if (result.Contains("ACCESS_TOKEN"))
-            {
-                result = result.Replace("ACCESS_TOKEN", $"{{{accessTokenVariableName}}}");
-            }
-            else
-            {
-                result += $"&access_token={{{accessTokenVariableName}}}";
-            }
-        }
+        //if (!string.IsNullOrWhiteSpace(accessTokenVariableName))
+        //{
+        //    if (result.Contains("ACCESS_TOKEN"))
+        //    {
+        //        result = result.Replace("ACCESS_TOKEN", $"{{{accessTokenVariableName}}}");
+        //    }
+        //    else
+        //    {
+        //        result += $"&access_token={{{accessTokenVariableName}}}";
+        //    }
+        //}
 
         return result;
     }
@@ -126,6 +199,6 @@ internal class ApiGroupTypeGenerator : TypeGeneratorBase
     {
         if (parameters.Count == 0) return string.Empty;
 
-        return string.Join(", ", parameters.Select(p => $"{p.CSharpType} {p.Name}"));
+        return string.Join(", ", parameters.Select(p => $"{p.CSharpType} {(p.Name == "params" ? "@params" : p.Name)}"));
     }
 }

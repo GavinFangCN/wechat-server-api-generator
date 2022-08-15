@@ -15,6 +15,7 @@ class ApiInfraCodeGenerator
 public interface " + ApiGeneratorShared.WechatApiClientInterfaceName + @"
 {
     ValueTask<string> GetJsonAsync(string url);
+    ValueTask<string> PostAsJsonAsync(string url, string json);
 }";
 
         File.WriteAllText(filePath, text);
